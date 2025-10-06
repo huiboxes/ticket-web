@@ -3,6 +3,8 @@ import { ref, reactive, h, onMounted, onUnmounted } from 'vue';
 import { LockOutlined, MobileOutlined, SafetyCertificateOutlined } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
+import { getGraphCaptcha, sendPhoneCaptcha, verifyPhoneCaptcha, memberLogin } from '@/api/member';
+import { useRouter } from 'vue-router';
 
 interface LoginForm {
   phone: string;
@@ -18,6 +20,8 @@ const captchaImg = ref('');
 const countdown = ref(0);
 let countdownTimer: number | null = null;
 
+const router = useRouter();
+
 const formState = reactive<LoginForm>({
   phone: '',
   code: '',
@@ -25,7 +29,6 @@ const formState = reactive<LoginForm>({
   captchaKey: '',
 });
 
-// 表单验证规则
 const rules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
@@ -35,49 +38,67 @@ const rules = {
     { required: true, message: '请输入短信验证码', trigger: 'blur' }
   ],
   captcha: [
-    { required: true, message: '请输入图片验证码', trigger: 'blur' }
+    { required: true, validator: (_, value) => {
+        if (showCaptcha.value && !value) {
+          return Promise.reject('请输入图片验证码');
+        }
+        return Promise.resolve();
+      }, trigger: 'blur' }
   ]
 };
 
-// 获取验证码
-const getCode = () => {
+const getCode = async () => {
+  console.log('点击获取验证码按钮');
   if (!formState.phone) {
     message.warning('请输入手机号');
     return;
   }
   
-  // 验证手机号格式
   const phoneRegex = /^1[3-9]\d{9}$/;
   if (!phoneRegex.test(formState.phone)) {
     message.warning('请输入正确的手机号');
     return;
   }
 
-  // 开始倒计时
-  startCountdown();
-  
-  // 模拟发送验证码请求
-  loading.value = true;
-  setTimeout(() => {
-    loading.value = false;
-    message.success('验证码已发送，请注意查收短信');
-    // 这里应该调用实际的发送验证码接口
-    console.log('发送验证码到:', formState.phone);
+  try {
+    const captchaData = {
+      phoneNumber: formState.phone,
+      businessType: 'LOGIN'
+    };
     
-    // 模拟后端返回需要显示验证码的逻辑
-    // 在实际应用中，应该根据后端返回决定是否显示验证码
-    // 这里为了演示，我们在第二次及之后获取验证码时显示
-    if (countdown.value < 50) { // 模拟后端决定需要验证码
+    if (showCaptcha.value) {
+      Object.assign(captchaData, {
+        graphCaptchaUuid: formState.captchaKey,
+        graphCaptchaCode: formState.captcha
+      });
+    }
+    
+    console.log('发送验证码请求数据:', captchaData);
+    loading.value = true;
+    const res = await sendPhoneCaptcha(captchaData);
+    console.log('发送验证码响应:', res);
+    if (!res.success) {
+      return message.error(res.message || '验证码发送失败');
+    }
+    
+    startCountdown();
+     
+    message.success(res.message || '验证码已发送，请注意查收短信');
+  } catch (err: any) {
+    console.error('发送验证码失败:', err);
+    message.error(err.message || '发送验证码失败');
+    
+    if (err.message?.includes('图形验证码')) {
       showCaptcha.value = true;
       refreshCaptcha();
     }
-  }, 1000);
+  } finally {
+    loading.value = false;
+  }
 };
 
-// 开始倒计时
 const startCountdown = () => {
   countdown.value = 60;
-  // 保存倒计时结束时间到localStorage
   const expireTime = Date.now() + 60 * 1000;
   localStorage.setItem('captchaCountdownExpire', expireTime.toString());
   
@@ -87,34 +108,69 @@ const startCountdown = () => {
       countdown.value--;
     } else {
       if (countdownTimer) clearInterval(countdownTimer);
-      // 清除localStorage中的倒计时
       localStorage.removeItem('captchaCountdownExpire');
     }
   }, 1000);
 };
 
-// 刷新图片验证码
-const refreshCaptcha = () => {
-  // 生成一个随机的验证码键值
-  formState.captchaKey = Math.random().toString(36).substring(2);
-  // 在实际应用中，这里应该是获取验证码图片的接口
-  captchaImg.value = `https://dummyimage.com/120x40/000000/ffffff&text=${Math.random().toString(36).substring(2, 6)}`;
+const refreshCaptcha = async () => {
+  try {
+    const response = await getGraphCaptcha();
+    captchaImg.value = response.image || `https://dummyimage.com/120x40/000000/ffffff&text=${Math.random().toString(36).substring(2, 6)}`;
+    formState.captchaKey = response.uuid || Math.random().toString(36).substring(2);
+  } catch (err: any) {
+    console.error('获取图形验证码失败:', err);
+    message.error('获取图形验证码失败');
+    formState.captchaKey = Math.random().toString(36).substring(2);
+    captchaImg.value = `https://dummyimage.com/120x40/000000/ffffff&text=${Math.random().toString(36).substring(2, 6)}`;
+  }
 };
 
-// 提交登录
-const onFinish = (values: any) => {
+const onFinish = async (values: any) => {
+  console.log('开始执行登录逻辑');
   console.log('Received values of form: ', values);
+  console.log('Form state: ', formState);
+  console.log('Form ref: ', formRef.value);
   loading.value = true;
   
-  // 模拟登录过程
-  setTimeout(() => {
+  if (!formState.phone || !formState.code) {
+    message.error('请填写完整的登录信息');
     loading.value = false;
-    message.success('登录成功');
-    // 这里应该处理实际的登录逻辑
-  }, 1500);
+    return;
+  }
+  
+  performLogin();
 };
 
-// 检查是否有保存的倒计时
+const onFinishFailed = (errorInfo: any) => {
+  console.log('登录表单验证失败:', errorInfo);
+  message.error('请检查输入信息是否正确');
+};
+
+const performLogin = async () => {
+  try {
+    console.log('开始执行登录/注册');
+    const response = await memberLogin({
+      mobile: formState.phone,
+      code: formState.code
+    });
+    console.log('登录/注册响应:', response);
+    
+    if (response.success) {
+      message.success('登录成功');
+      console.log('登录成功，用户ID:', response.content);
+      router.push('/');
+    } else {
+      message.error(response.message || '登录失败');
+    }
+  } catch (err: any) {
+    console.error('登录失败:', err);
+    message.error(err.message || '登录失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
 const checkSavedCountdown = () => {
   const expireTimeStr = localStorage.getItem('captchaCountdownExpire');
   if (expireTimeStr) {
@@ -129,23 +185,19 @@ const checkSavedCountdown = () => {
           countdown.value--;
         } else {
           if (countdownTimer) clearInterval(countdownTimer);
-          // 清除localStorage中的倒计时
           localStorage.removeItem('captchaCountdownExpire');
         }
       }, 1000);
     } else {
-      // 时间已过期，清除localStorage
       localStorage.removeItem('captchaCountdownExpire');
     }
   }
 };
 
-// 组件挂载时检查保存的倒计时
 onMounted(() => {
   checkSavedCountdown();
 });
 
-// 组件卸载时清理定时器
 onUnmounted(() => {
   if (countdownTimer) {
     clearInterval(countdownTimer);
@@ -167,6 +219,7 @@ onUnmounted(() => {
         :rules="rules"
         class="login-form-content"
         @finish="onFinish"
+        @finishFailed="onFinishFailed"
       >
         <a-form-item name="phone">
           <a-input 

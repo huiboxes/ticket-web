@@ -36,6 +36,6 @@
     "tests/**/*.tsx"
   ],
   "exclude": [
-    "node_modules"
+    "../../ticket-web/node_modules"
   ]
 }
