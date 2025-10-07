@@ -1,4 +1,5 @@
 import axios from 'axios';
+import store from '@/store'
 
 // 创建 axios 实例
 const service = axios.create({
@@ -12,10 +13,11 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
-    // const token = localStorage.getItem('access_token');
-    // if (token) {
-    //   config.headers['Authorization'] = 'Bearer ' + token;
-    // }
+    const token = store.state.member.token;
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+      console.log('token  ===  ',token)
     console.log('请求参数', config)
     return config;
   },

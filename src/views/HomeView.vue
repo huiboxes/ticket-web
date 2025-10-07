@@ -11,7 +11,7 @@
 
         <SiderView />
         <a-layout-content :style="{ padding: '0 24px', minHeight: '280px' }">
-          Content
+          会员人数：{{ count }}
         </a-layout-content>
       </a-layout>
     </a-layout-content>
@@ -20,15 +20,29 @@
     </a-layout-footer>
   </a-layout>
 </template>
-<script setup>
-import { ref } from 'vue';
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import HeaderView from '@/components/HeaderView.vue';
 import SiderView from '@/components/SiderView.vue';
 
+import request from "@/utils/request";
+
+const count = ref({ value: 0 });
+
+onMounted(async () => {
+  try {
+    const res = await request.get('http://localhost:8000/member/member/count')
+    count.value = res.data;
+  } catch (error) {
+    console.error("获取会员数量失败:", error);
+  }
+});
 
 const selectedKeys1 = ref(['2']);
 const selectedKeys2 = ref(['1']);
 const openKeys = ref(['sub1']);
+
+
 </script>
 <style scoped>
 #components-layout-demo-top-side .logo {
