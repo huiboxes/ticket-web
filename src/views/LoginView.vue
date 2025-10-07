@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, h, onMounted, onUnmounted } from 'vue';
 import { LockOutlined, MobileOutlined, SafetyCertificateOutlined } from '@ant-design/icons-vue';
-import { message } from 'ant-design-vue';
+import { message, notification } from 'ant-design-vue';
 import type { FormInstance } from 'ant-design-vue';
 import { getGraphCaptcha, sendPhoneCaptcha, verifyPhoneCaptcha, memberLogin } from '@/api/member';
 import { useRouter } from 'vue-router';
+import store from '@/store'
 
 interface LoginForm {
   phone: string;
@@ -158,7 +159,9 @@ const performLogin = async () => {
     
     if (response.success) {
       message.success('登录成功');
-      console.log('登录成功，用户ID:', response.content);
+      console.log('登录成功，用户信息:', response);
+      store.commit('setMember', response.data)
+      notification.success({ description: '登录成功！' })
       router.push('/');
     } else {
       message.error(response.message || '登录失败');
