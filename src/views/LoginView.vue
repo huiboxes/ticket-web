@@ -162,7 +162,7 @@ const performLogin = async () => {
       console.log('登录成功，用户信息:', response);
       store.commit('setMember', response.data)
       notification.success({ description: '登录成功！' })
-      router.push('/');
+      router.push('/welcome');
     } else {
       message.error(response.message || '登录失败');
     }
