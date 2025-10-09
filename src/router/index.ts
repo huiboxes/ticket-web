@@ -10,6 +10,17 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       requiresAuth: true,
     },
+    children: [{
+      path: "welcome",
+      name: "welcome",
+      component: () =>
+        import(/* webpackChunkName: "welcome" */ "../views/main/WelcomeView.vue"),
+
+    }]
+  },
+  {
+    path: '',
+    redirect: '/welcome'
   },
   {
     path: "/login",
