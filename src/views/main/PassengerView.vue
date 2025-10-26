@@ -10,7 +10,7 @@
         </a-button>
       </template>
       
-      <a-table :columns="columns" :data-source="passengerList" :pagination="false" :loading="loading">
+      <a-table :columns="columns" :data-source="passengerList" :pagination="pagination" :loading="loading" @change="handleTableChange">
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'type'">
             <span>{{ getPassengerTypeText(record.type) }}</span>
@@ -29,7 +29,7 @@
     <a-modal 
       v-model:open="modalVisible" 
       title="新增乘车人" 
-      @ok="handleOk"
+      @ok="handleOk" 
       @cancel="handleCancel"
       :confirm-loading="confirmLoading"
     >
@@ -59,7 +59,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { Form, message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
-import { savePassenger, getPassengerList } from "@/api/passenger"
+import { getPassengerList, savePassenger } from "@/api/passenger"
 
 const store = useStore()
 
@@ -93,6 +93,15 @@ const passengerList = ref([])
 // 表格加载状态
 const loading = ref(false)
 
+// 分页配置
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100']
+})
+
 // 模态框可见性
 const modalVisible = ref(false)
 
@@ -122,8 +131,15 @@ const fetchPassengerList = async () => {
     loading.value = true
     const memberId = store.state.member.id
     if (memberId) {
-      const response = await getPassengerList(memberId)
-      passengerList.value = response.data
+      const response = await getPassengerList({
+        memberId,
+        page: pagination.current,
+        size: pagination.pageSize
+      })
+      
+      const { total, list } = response.data
+      passengerList.value = list
+      pagination.total = total
     }
   } catch (error) {
     console.error('获取乘客列表失败:', error)
@@ -131,6 +147,12 @@ const fetchPassengerList = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleTableChange = (pag) => {
+  pagination.current = pag.current
+  pagination.pageSize = pag.pageSize
+  fetchPassengerList()
 }
 
 // 显示模态框
@@ -144,15 +166,14 @@ const handleOk = () => {
     .then(() => {
       confirmLoading.value = true
       
-      submitPassenger()
+      savePassengerData()
     })
     .catch(err => {
       console.log('表单验证失败:', err)
     })
 }
 
-// 保存乘客信息
-const submitPassenger = async () => {
+const savePassengerData = async () => {
   try {
     const response = await savePassenger({
       name: form.name,
@@ -169,7 +190,7 @@ const submitPassenger = async () => {
       modalVisible.value = false
       
       // 重新获取乘客列表
-      getPassengerList()
+      fetchPassengerList()
     } else {
       message.error(response.message || '新增乘客失败')
       confirmLoading.value = false

@@ -1,7 +1,11 @@
 import request from '@/utils/request';
 
-export const getPassengerList = (memberId: number) => {
-    return request.get(`/member/passenger/list/${memberId}`);
+export const getPassengerList = (params: {
+    memberId: number,
+    page?: number,
+    size?: number
+}) => {
+    return request.get(`/member/passenger/list`, { params });
 };
 
 export const savePassenger = (data: {
