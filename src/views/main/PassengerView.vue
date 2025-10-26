@@ -10,7 +10,7 @@
         </a-button>
       </template>
       
-      <a-table :columns="columns" :data-source="passengerList" :pagination="false">
+      <a-table :columns="columns" :data-source="passengerList" :pagination="false" :loading="loading">
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'type'">
             <span>{{ getPassengerTypeText(record.type) }}</span>
@@ -29,7 +29,7 @@
     <a-modal 
       v-model:open="modalVisible" 
       title="新增乘车人" 
-      @ok="handleOk" 
+      @ok="handleOk"
       @cancel="handleCancel"
       :confirm-loading="confirmLoading"
     >
@@ -56,9 +56,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import { Form, message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
-import { savePassenger } from "@/api/passenger";
+import { savePassenger, getPassengerList } from "@/api/passenger"
+
+const store = useStore()
 
 // 表格列定义
 const columns = [
@@ -87,6 +90,9 @@ const columns = [
 // 乘车人列表数据
 const passengerList = ref([])
 
+// 表格加载状态
+const loading = ref(false)
+
 // 模态框可见性
 const modalVisible = ref(false)
 
@@ -111,13 +117,19 @@ const { validate, validateInfos, resetFields } = Form.useForm(form, rules)
 const confirmLoading = ref(false)
 
 // 获取乘客列表
-const getPassengerList = async () => {
+const fetchPassengerList = async () => {
   try {
-    // TODO 调用获取乘客列表的接口
-    passengerList.value = []
+    loading.value = true
+    const memberId = store.state.member.id
+    if (memberId) {
+      const response = await getPassengerList(memberId)
+      passengerList.value = response.data
+    }
   } catch (error) {
     console.error('获取乘客列表失败:', error)
     message.error('获取乘客列表失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -142,7 +154,6 @@ const handleOk = () => {
 // 保存乘客信息
 const submitPassenger = async () => {
   try {
-
     const response = await savePassenger({
       name: form.name,
       idCard: form.idCard,
@@ -192,7 +203,7 @@ const getPassengerTypeText = (type) => {
 
 // 页面加载时获取数据
 onMounted(() => {
-  getPassengerList()
+  fetchPassengerList()
 })
 </script>
 
