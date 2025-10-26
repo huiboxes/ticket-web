@@ -10,13 +10,20 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       requiresAuth: true,
     },
-    children: [{
+    children: [
+    {
       path: "welcome",
       name: "welcome",
       component: () =>
         import(/* webpackChunkName: "welcome" */ "../views/main/WelcomeView.vue"),
-
-    }]
+    },
+    {
+      path: "passenger",
+      name: "passenger",
+      component: () =>
+        import(/* webpackChunkName: "passenger" */ "../views/main/PassengerView.vue"),
+    },
+    ]
   },
   {
     path: '',
